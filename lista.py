@@ -1,5 +1,5 @@
 # Lista de compras inteligente
-compras = []
+'''compras = []
 
 print("=== LISTA DE COMPRAS ===")
 print("Digite os itens (digite 'fim' para terminar)")
@@ -24,7 +24,7 @@ while True:  # Loop infinito até alguém digitar 'fim'
     # E depois mostra quantos itens já tem
 
 # Aqui você vai usar while, input, append e if
-# Tente fazer sozinho primeiro!
+# Tente fazer sozinho primeiro!'''
 
 
 # Código da Claudeai
@@ -32,6 +32,7 @@ compras = []
 print("=== LISTA DE COMPRAS ===")
 print("Digite os itens (digite 'fim' para terminar)")
 print("Comandos: 'lista' para ver itens, 'tamanho' para contar")
+print("Digite 'remover' para retirar um item da lista")
 
 while True:
     item = input("Item: ")
@@ -45,6 +46,20 @@ while True:
     elif item == "tamanho":
         print(f"Você tem {len(compras)} itens")
         continue  # Volta para o início do loop SEM adicionar na lista
+    # Se o usuário digitar "remover", pergunte qual item tirar
+    elif item == "remover":
+        if len(compras) == 0:
+            print("Lista vazia!")
+        else:
+            print(f"Itens disponíveis: {compras}")
+            remover = input("Qual item remover? ")
+            
+            try:
+                compras.remove(remover)
+                print(f"'{remover}' removido com sucesso!")
+            except ValueError:
+                print(f"'{remover}' não está na lista!")
+        # Aqui você tenta remover (dica: use try/except ou if/in)
     elif item == "":
         print("Você precisa digitar algum item!")
         continue  # Volta para o início do loop SEM adicionar na lista
