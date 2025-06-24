@@ -18,6 +18,26 @@ class TextFrequencyAnalyzer:
             'source': source_name
         })
     
+    def add_pasted_text(self, text, source_name="Texto Colado"):
+        """
+        Adiciona texto colado diretamente
+        
+        Args:
+            text: o texto completo colado
+            source_name: nome para identificar este texto
+        """
+        if not text.strip():
+            print("Erro: Texto vazio fornecido!")
+            return False
+            
+        self.add_text(text.strip(), source_name)
+        word_count = len(text.split())
+        char_count = len(text)
+        print(f"✓ Texto '{source_name}' adicionado com sucesso!")
+        print(f"  - Caracteres: {char_count:,}")
+        print(f"  - Palavras: {word_count:,}")
+        return True
+    
     def load_text_file(self, file_path, encoding='utf-8'):
         """Carrega texto de um arquivo"""
         try:
@@ -39,6 +59,51 @@ class TextFrequencyAnalyzer:
         text = re.sub(r'\s+', ' ', text).strip()
         return text
     
+    def interactive_text_input(self):
+        """Método interativo para colar texto"""
+        print("\n=== ADICIONAR TEXTO COLADO ===")
+        print("Cole seu texto abaixo (pressione Enter duas vezes para finalizar):")
+        print("Ou digite 'quit' para cancelar\n")
+        
+        lines = []
+        empty_line_count = 0
+        
+        while True:
+            try:
+                line = input()
+                if line.lower().strip() == 'quit':
+                    print("Operação cancelada.")
+                    return False
+                    
+                if line.strip() == '':
+                    empty_line_count += 1
+                    if empty_line_count >= 2:
+                        break
+                else:
+                    empty_line_count = 0
+                    
+                lines.append(line)
+            except KeyboardInterrupt:
+                print("\nOperação cancelada.")
+                return False
+        
+        # Remove linhas vazias do final
+        while lines and lines[-1].strip() == '':
+            lines.pop()
+            
+        if not lines:
+            print("Nenhum texto foi fornecido.")
+            return False
+            
+        text = '\n'.join(lines)
+        
+        # Pedir nome para o texto
+        source_name = input("\nDigite um nome para este texto (ou pressione Enter para usar 'Texto Colado'): ").strip()
+        if not source_name:
+            source_name = "Texto Colado"
+            
+        return self.add_pasted_text(text, source_name)
+    
     def analyze_frequency(self, target_words, case_sensitive=False):
         """
         Analisa a frequência das palavras especificadas
@@ -47,6 +112,10 @@ class TextFrequencyAnalyzer:
             target_words: lista de palavras para analisar
             case_sensitive: se True, considera maiúsculas/minúsculas
         """
+        if not self.texts:
+            print("Erro: Nenhum texto foi adicionado para análise!")
+            return {}
+            
         if not case_sensitive:
             target_words = [word.lower() for word in target_words]
         
@@ -76,6 +145,10 @@ class TextFrequencyAnalyzer:
     
     def create_frequency_dataframe(self):
         """Cria um DataFrame com os resultados da análise"""
+        if not self.word_frequencies:
+            print("Erro: Execute analyze_frequency() primeiro!")
+            return pd.DataFrame()
+            
         data = []
         for word, freq_list in self.word_frequencies.items():
             for freq_data in freq_list:
@@ -88,33 +161,36 @@ class TextFrequencyAnalyzer:
         return pd.DataFrame(data)
     
     def plot_frequency_bar(self, figsize=(12, 6), title="Frequência de Palavras"):
-        """Cria gráfico de barras horizontal da frequência das palavras com a frequencia de cada palavra"""
+        """Cria gráfico de barras da frequência das palavras"""
         df = self.create_frequency_dataframe()
         
+        if df.empty:
+            print("Erro: Nenhum dado para plotar!")
+            return
+            
         plt.figure(figsize=figsize)
         
         if len(self.texts) == 1:
             # Se há apenas um texto, mostra frequência simples
             word_totals = df.groupby('palavra')['frequencia'].sum().sort_values(ascending=False)
-            plt.barh(word_totals.index, word_totals.values)
+            bars = plt.barh(word_totals.index, word_totals.values)
 
-            for index, value in enumerate(word_totals.values):
-                plt.text(value, index, str(value), ha='left', va='center')
+            # Adiciona valores nas barras
+            for i, (bar, value) in enumerate(zip(bars, word_totals.values)):
+                plt.text(value + 0.1, i, str(value), ha='left', va='center')
 
             plt.title(title)
-            plt.xlabel('Palavras')
-            plt.ylabel('Frequência')
-            plt.xticks(rotation=45)
+            plt.xlabel('Frequência')
+            plt.ylabel('Palavras')
         else:
             # Se há múltiplos textos, mostra comparação
             pivot_df = df.pivot(index='palavra', columns='fonte', values='frequencia').fillna(0)
-            pivot_df.plot(kind='bar', figsize=figsize)
             ax = pivot_df.plot(kind='bar', figsize=figsize)
+            
+            # Adiciona valores nas barras
             for container in ax.containers:
-                for bar in container:
-                    width = bar.get_width()
-                    ax.text(width +0.1, bar.get_y() + bar.get_height()/2,
-                            f'{int(width)}', ha='left', va='center', fontsize=9)
+                ax.bar_label(container, fmt='%d')
+                
             plt.title(title)
             plt.xlabel('Palavras')
             plt.ylabel('Frequência')
@@ -131,6 +207,10 @@ class TextFrequencyAnalyzer:
             return
         
         df = self.create_frequency_dataframe()
+        if df.empty:
+            print("Erro: Nenhum dado para plotar!")
+            return
+            
         pivot_df = df.pivot(index='palavra', columns='fonte', values='frequencia').fillna(0)
         
         plt.figure(figsize=figsize)
@@ -142,60 +222,118 @@ class TextFrequencyAnalyzer:
     def get_summary_stats(self):
         """Retorna estatísticas resumidas da análise"""
         df = self.create_frequency_dataframe()
+        if df.empty:
+            print("Erro: Nenhum dado para análise!")
+            return pd.DataFrame()
+            
         summary = df.groupby('palavra').agg({
             'frequencia': ['sum', 'mean', 'std', 'max', 'min']
         }).round(2)
         
         summary.columns = ['Total', 'Média', 'Desvio Padrão', 'Máximo', 'Mínimo']
         return summary
+    
+    def show_text_info(self):
+        """Mostra informações sobre os textos carregados"""
+        if not self.texts:
+            print("Nenhum texto carregado.")
+            return
+            
+        print("\n=== TEXTOS CARREGADOS ===")
+        for i, text_data in enumerate(self.texts, 1):
+            text = text_data['text']
+            source = text_data['source']
+            word_count = len(text.split())
+            char_count = len(text)
+            
+            print(f"{i}. Fonte: {source}")
+            print(f"   Caracteres: {char_count:,}")
+            print(f"   Palavras: {word_count:,}")
+            print(f"   Prévia: {text[:100]}...")
+            print()
 
-# Exemplo de uso
-if __name__ == "__main__":
-    # Criar instância do analisador
+def main():
+    """Função principal com interface interativa"""
+    print("=== ANALISADOR DE FREQUÊNCIA DE PALAVRAS ===\n")
+    
     analyzer = TextFrequencyAnalyzer()
     
-    caminho_corpus = os.path.expanduser("~/Downloads/corpus.txt")
-
-    try:
-        analyzer.load_text_file(caminho_corpus)
-        print(f"Corpus carregado com sucesso de: {caminho_corpus}")
-    except FileNotFoundError:
-        print(f"Arquivo não encontrado em: {caminho_corpus}")
-        print("Verifique se o arquivo existe e o caminho está correto.")
+    while True:
+        print("\nEscolha uma opção:")
+        print("1. Colar texto diretamente")
+        print("2. Carregar arquivo de texto")
+        print("3. Ver textos carregados")
+        print("4. Analisar frequência de palavras")
+        print("5. Sair")
         
-        # Mostrar caminhos possíveis para ajudar
-        print("\nTente um destes caminhos:")
-        print("Windows: C:\\Users\\SeuUsuario\\Downloads\\corpus.txt")
-        print("Linux/Mac: /home/seuusuario/Downloads/corpus.txt")
-        print("Ou use: os.path.expanduser('~/Downloads/corpus.txt')")
+        choice = input("\nDigite sua escolha (1-5): ").strip()
+        
+        if choice == '1':
+            analyzer.interactive_text_input()
+            
+        elif choice == '2':
+            file_path = input("Digite o caminho do arquivo: ").strip()
+            if file_path:
+                analyzer.load_text_file(file_path)
+                
+        elif choice == '3':
+            analyzer.show_text_info()
+            
+        elif choice == '4':
+            if not analyzer.texts:
+                print("Erro: Adicione pelo menos um texto primeiro!")
+                continue
+                
+            words_input = input("Digite as palavras para analisar (separadas por vírgula): ").strip()
+            if not words_input:
+                print("Nenhuma palavra fornecida!")
+                continue
+                
+            target_words = [word.strip() for word in words_input.split(',')]
+            
+            print(f"\nAnalisando palavras: {target_words}")
+            frequencies = analyzer.analyze_frequency(target_words)
+            
+            if frequencies:
+                print("\n=== RESULTADOS ===")
+                df_results = analyzer.create_frequency_dataframe()
+                print(df_results)
+                
+                print("\n=== ESTATÍSTICAS ===")
+                print(analyzer.get_summary_stats())
+                
+                # Perguntar se quer visualizar
+                show_plot = input("\nDeseja ver os gráficos? (s/n): ").strip().lower()
+                if show_plot in ['s', 'sim', 'yes', 'y']:
+                    analyzer.plot_frequency_bar()
+                    if len(analyzer.texts) > 1:
+                        analyzer.plot_frequency_heatmap()
+                        
+        elif choice == '5':
+            print("Saindo...")
+            break
+            
+        else:
+            print("Opção inválida! Tente novamente.")
+
+# Exemplo de uso direto (sem interface interativa)
+if __name__ == "__main__":
+    # Descomente a linha abaixo para usar a interface interativa
+    main()
     
-    # Palavras que queremos analisar
-    palavras_alvo = ["architecture", "security", "privacy"]
-    
-    # Realizar análise
-    frequencias = analyzer.analyze_frequency(palavras_alvo)
-    
-    # Mostrar resultados
-    print("=== ANÁLISE DE FREQUÊNCIA DE PALAVRAS ===\n")
-    
-    df_results = analyzer.create_frequency_dataframe()
-    print("DataFrame com resultados:")
-    print(df_results)
-    print("\n")
-    
-    print("Estatísticas resumidas:")
-    print(analyzer.get_summary_stats())
-    print("\n")
-    
-    # Criar visualizações
-    analyzer.plot_frequency_bar(title="Frequência das Palavras-Chave")
-    analyzer.plot_frequency_heatmap()
-    
-    # Exemplo de como carregar arquivos de texto
-    # analyzer.load_text_file("caminho/para/seu/arquivo.txt")
-    
-    print("Para usar com seus próprios arquivos:")
-    print("1. Use analyzer.load_text_file('caminho/arquivo.txt')")
-    print("2. Ou use analyzer.add_text(seu_texto, 'nome_fonte')")
-    print("3. Execute analyzer.analyze_frequency(lista_palavras)")
-    print("4. Visualize com analyzer.plot_frequency_bar() ou plot_frequency_heatmap()")
+    # Ou use diretamente assim:
+    # analyzer = TextFrequencyAnalyzer()
+    # 
+    # # Exemplo de uso direto colando texto
+    # meu_texto = """
+    # Cole seu texto aqui...
+    # """
+    # analyzer.add_pasted_text(meu_texto, "Meu Corpus")
+    # 
+    # # Analisar palavras
+    # palavras = ["palavra1", "palavra2", "palavra3"]
+    # analyzer.analyze_frequency(palavras)
+    # 
+    # # Ver resultados
+    # print(analyzer.create_frequency_dataframe())
+    # analyzer.plot_frequency_bar()
