@@ -1,0 +1,2 @@
+Esse texto foi escrito usando Node.js com async/await!Anotação feita em 10/08/2025, 20:35:48
+Essa é a primeira anotação interativo do código para teste
